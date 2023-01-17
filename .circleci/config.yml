@@ -2,6 +2,17 @@ version: 2.1
 # Use a package of configuration called an orb.
 orbs:
   aws-cli: circleci/aws-cli@2.0.3
+
+commands:
+  # Exercise - Rollback
+  destroy_environment:
+    steps:
+      - run:
+          name: Destroy environment
+          when: on_fail
+          command: |
+            aws cloudformation delete-stack --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:7}
+
 # Define the jobs we want to run for this project
 jobs:
   create_infrastructure: 
@@ -14,7 +25,7 @@ jobs:
             command: |
               aws cloudformation deploy \
                 --template-file template.yml \
-                --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:5} \
+                --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:7} \
                 --region us-east-1
   configure_infrastructure: 
     docker:
@@ -36,22 +47,16 @@ jobs:
     docker:
       - image: alpine:latest
     steps:
-      - run: apk add --update curl
       - run:
-          name: smoke test
-          command: |
-            URL="https://blog.udacity.com/"
-            if curl -s --head ${URL} 
-            then
-              return 0
-            else
-              return 1
-            fi                
+          name: Test job
+          # Fail the job intentionally to simulate an error.
+          command:  return 1
+      - destroy_environment            
 # Sequential workflow
 workflows:
   # Name the workflow
   myWorkflow:
     jobs:
-      #- create_infrastructure
+      - create_infrastructure
       #- configure_infrastructure
       - smoke_test
